@@ -1,0 +1,25 @@
+# OS / editor
+.DS_Store
+.idea/
+
+# Python env / cache
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Large experiment outputs
+artifacts/
+reports/
+logs/
+model/
+
+# Local data
+data/
+
+# Misc binaries
+*.pt
+*.pth
+*.joblib
+*.csv
