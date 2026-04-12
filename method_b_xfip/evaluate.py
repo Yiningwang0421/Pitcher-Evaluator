@@ -11,8 +11,10 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 def regression_metrics(y_true: Iterable[float], y_pred: Iterable[float]) -> dict[str, float]:
     y_true_arr = np.asarray(list(y_true), dtype=np.float64)
     y_pred_arr = np.asarray(list(y_pred), dtype=np.float64)
+    mse = float(mean_squared_error(y_true_arr, y_pred_arr))
     metrics = {
-        "rmse": float(math.sqrt(mean_squared_error(y_true_arr, y_pred_arr))),
+        "mse": mse,
+        "rmse": float(math.sqrt(mse)),
         "mae": float(mean_absolute_error(y_true_arr, y_pred_arr)),
         "r2": float(r2_score(y_true_arr, y_pred_arr)),
     }
@@ -28,6 +30,7 @@ def print_metrics(title: str, metrics: dict[str, float]) -> None:
     print(
         " | ".join(
             [
+                f"MSE: {metrics['mse']:.4f}",
                 f"RMSE: {metrics['rmse']:.4f}",
                 f"MAE: {metrics['mae']:.4f}",
                 f"R2: {metrics['r2']:.4f}",

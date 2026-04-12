@@ -1,96 +1,64 @@
-# Method B xFIP Pipeline
+# Method B xFIP (Pitcher-Season Family Set Model)
 
-This repository now uses a single modeling path: Method B hierarchical xFIP modeling.
-The command entrypoint is unified under `method_b_xfip/cli.py` so root-level scripts and package code can be run through one interface.
+This project trains an interpretable pitcher-season xFIP model with three fixed pitch families:
 
-## Unified Layout
+- `fastball`: `FF`, `FT`, `SI`, `FC`
+- `breaking`: `SL`, `CU`, `KC`, `SV`
+- `offspeed`: `CH`, `FS`, `FO`, `SC`
 
-- Core modeling code: `method_b_xfip/`
-- Consolidated script entrypoints: `method_b_xfip/scripts/`
-- Root-level Python script wrappers were removed.
+Each pitcher-season sample is represented as three masked pitch sets, encoded per family, then fused by usage-weighted contributions.
 
-## Core Idea
+## Repository Layout
 
-Method B predicts pitcher-season xFIP in four stages:
+- Core package: `method_b_xfip/`
+- Training script: `method_b_xfip/scripts/train_method_b_xfip.py`
+- Model/data outputs (local only): `artifacts/`, `reports/`, `logs/`, `model/`
+- Data folders (local only): `data/`
 
-1. Build pitch-level physical features.
-2. Train one set-to-scalar model per pitch group.
-3. Aggregate each pitcher-season-pitch-group into a score.
-4. Fuse scores by pitch usage into final pitcher-season xFIP.
-
-Default pitch grouping mode is `family`:
-- `fastball`
-- `breaking`
-- `offspeed`
-- `other`
-
-Use `raw` mode only when you want original pitch codes trained separately.
-
-## Recommended Workflow
-
-### 1) Build processed data
+## Recommended Training Command
 
 ```bash
-python -m method_b_xfip.cli build -- \
-  --num-samples 800 \
-  --years 2022 2023 2024 \
-  --min-pitches 256
+python -m method_b_xfip.scripts.train_method_b_xfip \
+  --artifact-dir artifacts/method_b_xfip_family_best \
+  --report-dir reports/method_b_xfip_family_best \
+  --epochs 60 \
+  --patience 10 \
+  --collapse-reg-weight 0 \
+  --fastball-samples 64 \
+  --breaking-samples 48 \
+  --offspeed-samples 48 \
+  --loss-type huber \
+  --huber-delta 0.8 \
+  --lr 0.001 \
+  --weight-decay 0.0001 \
+  --batch-size 16 \
+  --hidden-dims 128,64 \
+  --family-encoder-type mean_mlp
 ```
 
-This prepares:
-- `data/processed/players_processed_bk/data_merged_processed.csv`
-- `data/processed/players_processed_bk/data_merged_processed_256plus.csv`
+## Main Outputs
 
-### 2) Train Method B
+- Metrics: `reports/<run_name>/method_b_metrics.json`
+- Predictions: `reports/<run_name>/method_b_predictions.csv`
+- Family summary: `reports/<run_name>/method_b_pitch_type_summary.csv`
+- Model checkpoints and metadata: `artifacts/<run_name>/`
+
+Prediction table includes `score_<family>`, `weight_<family>`, and `contribution_<family>` for interpretability.
+
+## Keep Repo Small
+
+This repo ignores local-heavy folders by default via `.gitignore`:
+
+- `artifacts/`
+- `reports/`
+- `logs/`
+- `model/`
+- `data/`
+
+If local disk usage grows during experiments, cleanup can be done with:
 
 ```bash
-python -m method_b_xfip.cli train -- \
-  --input-file data/processed/players_processed_bk/data_merged_processed.csv \
-  --artifact-dir artifacts/method_b_xfip \
-  --report-dir reports/method_b_xfip \
-  --pitch-group-mode family \
-  --calibrate
+rm -rf artifacts/* reports/* logs/* model/* data/interim/* data/raw/*
 ```
 
-## Outputs
-
-### Artifacts
-- `artifacts/method_b_xfip/config.json`
-- `artifacts/method_b_xfip/pitch_types/<pitch_group>/model.pt`
-- `artifacts/method_b_xfip/pitch_types/<pitch_group>/preprocessor.joblib`
-- `artifacts/method_b_xfip/fusion_calibrator.joblib` (when `--calibrate` is enabled)
-
-### Reports
-- `reports/method_b_xfip/method_b_predictions.csv`
-- `reports/method_b_xfip/method_b_metrics.json`
-- `reports/method_b_xfip/method_b_pitch_type_summary.csv`
-
-## Prediction Columns
-
-- `pitcher_id`
-- `season`
-- `true_xFIP`
-- `predicted_xFIP`
-- `score_<pitch_group>`
-- `weight_<pitch_group>`
-- `contribution_<pitch_group>`
-- `top_contributors`
-
-## Pipeline Options Kept
-
-The unified CLI forwards to `pipeline.py` and `train_method_b_xfip.py`:
-
-- `--skip-fetch`, `--skip-merge`, `--skip-enrich`, `--skip-build`, `--skip-min-filter`
-- `--apply-range-filter`, `--xfip-min`, `--xfip-max`
-- `--train-method-b`
-
-## One-command full run
-
-```bash
-python -m method_b_xfip.cli full
-```
-
-## Notes
-
-- Legacy modeling scripts were removed to avoid path confusion and mixed training logic.
-- Use package entrypoints only (`python -m method_b_xfip ...`).
+Keep only the minimum data you still need in `data/processed/`.
